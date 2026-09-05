@@ -1,0 +1,203 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String   @default("ADMIN") // ROOT_ADMIN, ADMIN, USER
+  status       String   @default("ACTIVE") // ACTIVE, INACTIVE
+  academicYear String?
+  department   String?
+  degree       String?
+  dob          String?
+  phone        String?
+  college      String?
+  github       String?
+  linkedin     String?
+  portfolio    String?
+  isVerified             Boolean   @default(false)
+  verificationToken      String?
+  verificationTokenExpires DateTime?
+  googleId               String?   @unique
+  githubId               String?   @unique
+  failedLoginAttempts    Int       @default(0)
+  lockoutUntil           DateTime?
+  acceptedTerms          Boolean   @default(false)
+  acceptedTermsAt        DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  rooms            Room[]
+  participantRooms RoomParticipant[]
+
+  @@index([email])
+  @@index([role])
+  @@index([status])
+}
+
+model Room {
+  id                 String   @id @default(uuid())
+  roomCode           String   @unique
+  joiningCode        String?  @unique
+  name               String
+  description        String
+  startDate          DateTime
+  endDate            DateTime
+  submissionDeadline DateTime
+  status             String   @default("DRAFT") // DRAFT, ACTIVE, CLOSED
+  adminId            String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  admin         User                @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  problems      Problem[]
+  teams         Team[]
+  assignments   ProblemAssignment[]
+  submissions   Submission[]
+  announcements Announcement[]
+  participants  RoomParticipant[]
+
+  @@index([roomCode])
+  @@index([joiningCode])
+  @@index([status])
+  @@index([adminId])
+}
+
+model Team {
+  id           String   @id @default(uuid())
+  roomId       String
+  teamCode     String   @unique
+  teamName     String
+  leaderName   String
+  leaderEmail  String
+  college      String
+  logoUrl      String?
+  passwordHash String
+  status       String   @default("ACTIVE") // ACTIVE, INACTIVE
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  room        Room                @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  members     TeamMember[]
+  assignments ProblemAssignment[]
+  submissions Submission[]
+
+  @@index([roomId])
+  @@index([teamCode])
+  @@index([leaderEmail])
+  @@index([status])
+}
+
+model TeamMember {
+  id        String   @id @default(uuid())
+  teamId    String
+  name      String
+  email     String
+  phone     String?
+  isLeader  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([teamId])
+  @@index([email])
+}
+
+model Problem {
+  id             String   @id @default(uuid())
+  roomId         String
+  title          String
+  description    String
+  requirements   String
+  instructions   String
+  attachmentPath String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  room        Room                @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  assignments ProblemAssignment[]
+  submissions Submission[]
+
+  @@index([roomId])
+}
+
+model ProblemAssignment {
+  id         String   @id @default(uuid())
+  roomId     String
+  teamId     String
+  problemId  String
+  assignedAt DateTime @default(now())
+
+  room    Room    @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  team    Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  problem Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, problemId])
+  @@index([roomId])
+  @@index([teamId])
+  @@index([problemId])
+}
+
+model Submission {
+  id          String    @id @default(uuid())
+  roomId      String
+  teamId      String
+  problemId   String
+  projectName String
+  description String
+  filePath    String?
+  githubUrl   String?
+  demoUrl     String?
+  status      String    @default("DRAFT") // NOT_SUBMITTED, DRAFT, SUBMITTED, LOCKED
+  submittedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  room    Room    @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  team    Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  problem Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, problemId])
+  @@index([roomId])
+  @@index([teamId])
+  @@index([problemId])
+  @@index([status])
+}
+
+model Announcement {
+  id        String   @id @default(uuid())
+  roomId    String
+  title     String
+  message   String
+  createdAt DateTime @default(now())
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@index([roomId])
+}
+
+model RoomParticipant {
+  id        String   @id @default(uuid())
+  roomId    String
+  userId    String
+  joinedAt  DateTime @default(now())
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, userId])
+  @@index([roomId])
+  @@index([userId])
+}
